@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "mcp-superiorapis-http": {
+      "transport": {
+        "type": "http",
+        "url": "http://localhost:8000/mcp"
+      },
+      "env": {
+        "TOKEN": "your_main_superior_apis_token_here"
+      }
+    },
+    "mcp-superiorapis-sse": {
+      "transport": {
+        "type": "sse",
+        "url": "http://localhost:8080/sse"
+      },
+      "env": {
+        "TOKEN": "your_team_superior_apis_token_here"
+      }
+    }
+  }
+}

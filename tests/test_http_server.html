@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MCP SuperiorAPIs HTTP Server Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; text-align: center; }
+        .section { margin: 20px 0; padding: 15px; border: 2px solid #ddd; border-radius: 8px; background: #f9f9f9; }
+        
+        #messages { border: 1px solid #ccc; height: 400px; overflow-y: scroll; padding: 10px; margin: 10px 0; background: #fafafa; font-family: 'Courier New', monospace; font-size: 12px; }
+        .message { margin: 5px 0; padding: 5px; word-wrap: break-word; border-radius: 4px; }
+        .error { background: #ffebee; border-left: 4px solid #f44336; }
+        .success { background: #e8f5e8; border-left: 4px solid #4caf50; }
+        .info { background: #e3f2fd; border-left: 4px solid #2196f3; }
+        
+        button { padding: 10px 20px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .primary-btn { background: #2196f3; color: white; }
+        .control-btn { background: #666; color: white; }
+        
+        input, select, textarea { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 4px; width: 300px; }
+        .tools-list { max-height: 200px; overflow-y: scroll; border: 1px solid #ddd; padding: 10px; background: white; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; font-weight: bold; }
+        .connected { background: #d4edda; color: #155724; }
+        .disconnected { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 MCP SuperiorAPIs HTTP Server Test</h1>
+        
+        <!-- 配置區域 -->
+        <div class="section">
+            <h3>⚙️ 測試配置</h3>
+            <label>伺服器地址:</label>
+            <input type="text" id="serverUrl" value="http://localhost:8000" placeholder="http://localhost:8000" style="width: 300px;">
+            <br>
+            <label>認證 Token:</label>
+            <input type="text" id="authToken" value="" placeholder="請輸入您的 Superior APIs Token" style="width: 400px;">
+            <br>
+            <button class="control-btn" onclick="updateConfig()">🔄 更新配置</button>
+            <p><em>提示：Token 會在請求中提供給 MCP 伺服器</em></p>
+        </div>
+        
+        <!-- 狀態區域 -->
+        <div id="status" class="status disconnected">未連接</div>
+        
+        <!-- 控制按鈕 -->
+        <div>
+            <button class="control-btn" onclick="clearMessages()">🗑️ 清除訊息</button>
+            <button class="control-btn" onclick="checkHealth()">🏥 健康檢查</button>
+            <button class="control-btn" onclick="checkStatus()">📊 伺服器狀態</button>
+            <button class="control-btn" onclick="testConnectivity()">🔌 連接測試</button>
+        </div>
+        
+        <!-- MCP 測試區域 -->
+        <div class="section">
+            <h3>🔗 MCP HTTP 測試</h3>
+            <p><strong>端點:</strong> /mcp | <strong>功能:</strong> MCP 協議 + Superior APIs 整合</p>
+            <button class="primary-btn" onclick="testMCPInitialize()">初始化</button>
+            <button class="primary-btn" onclick="testMCPToolsList()">取得工具列表</button>
+            <button class="primary-btn" onclick="showToolsSelect()">顯示工具選擇</button>
+        </div>
+        
+        <!-- 工具調用區域 -->
+        <div id="tool-selection" style="display: none;">
+            <h3>🔧 工具調用測試</h3>
+            <select id="toolSelect"></select>
+            <button class="primary-btn" onclick="callSelectedTool()">調用選中的工具</button>
+            <div>
+                <label>參數 (JSON 格式):</label><br>
+                <textarea id="toolArgs" rows="3" cols="80" placeholder='{"參數名": "參數值"}'></textarea>
+            </div>
+        </div>
+        
+        <!-- 工具列表顯示 -->
+        <div id="tools-display" class="tools-list" style="display: none;">
+            <h4>🛠️ 可用工具:</h4>
+            <div id="tools-content"></div>
+        </div>
+        
+        <!-- 訊息顯示區域 -->
+        <div id="messages"></div>
+    </div>
+
+    <script>
+        let availableTools = [];
+        const messagesDiv = document.getElementById('messages');
+        const statusDiv = document.getElementById('status');
+        
+        // 配置變數 - 從 UI 取得
+        let serverUrl = 'http://localhost:8000';
+        let authToken = '';
+        
+        // 初始化配置
+        function initConfig() {
+            const serverUrlInput = document.getElementById('serverUrl');
+            const authTokenInput = document.getElementById('authToken');
+            
+            serverUrl = serverUrlInput.value;
+            authToken = authTokenInput.value;
+            
+            // 如果沒有設定 token，嘗試從 localStorage 取得
+            if (!authToken) {
+                const savedToken = localStorage.getItem('mcp_auth_token');
+                if (savedToken) {
+                    authTokenInput.value = savedToken;
+                    authToken = savedToken;
+                }
+            }
+        }
+        
+        // 更新配置
+        function updateConfig() {
+            const serverUrlInput = document.getElementById('serverUrl');
+            const authTokenInput = document.getElementById('authToken');
+            
+            serverUrl = serverUrlInput.value;
+            authToken = authTokenInput.value;
+            
+            // 儲存 token 到 localStorage
+            if (authToken) {
+                localStorage.setItem('mcp_auth_token', authToken);
+            }
+            
+            addMessage(`✅ 配置已更新 - 伺服器: ${serverUrl}`, 'success');
+            
+            // 驗證 token
+            if (!authToken) {
+                addMessage('⚠️  警告：未設定認證 Token，請填入您的 Superior APIs Token', 'error');
+            }
+        }
+        
+        // 頁面載入時初始化配置
+        window.onload = function() {
+            initConfig();
+        };
+
+        function addMessage(message, type = 'message') {
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}:</strong> ${message}`;
+            messagesDiv.appendChild(div);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function updateStatus(connected, clientType = '') {
+            if (connected) {
+                statusDiv.textContent = `✅ 已連接 ${clientType}`;
+                statusDiv.className = 'status connected';
+            } else {
+                statusDiv.textContent = '❌ 未連接';
+                statusDiv.className = 'status disconnected';
+            }
+        }
+
+        // === 健康檢查和狀態 ===
+        async function checkHealth() {
+            try {
+                const response = await fetch(`${serverUrl}/health`);
+                const result = await response.json();
+                addMessage(`🏥 健康檢查: ${JSON.stringify(result, null, 2)}`, 'success');
+                updateStatus(true, 'HTTP');
+            } catch (error) {
+                addMessage(`❌ 健康檢查失敗: ${error.message}`, 'error');
+                updateStatus(false);
+            }
+        }
+
+        async function checkStatus() {
+            try {
+                const response = await fetch(`${serverUrl}/status`);
+                const result = await response.json();
+                addMessage(`📊 伺服器狀態:\n${JSON.stringify(result, null, 2)}`, 'success');
+                updateStatus(true, 'HTTP');
+            } catch (error) {
+                addMessage(`❌ 狀態檢查失敗: ${error.message}`, 'error');
+                updateStatus(false);
+            }
+        }
+
+        function clearMessages() {
+            messagesDiv.innerHTML = '';
+        }
+
+        // === 連接測試 ===
+        async function testConnectivity() {
+            addMessage('🔌 開始連接測試...', 'info');
+            
+            // 測試基本連接
+            try {
+                const response = await fetch(serverUrl, {
+                    method: 'GET',
+                    mode: 'cors'
+                });
+                
+                if (response.ok) {
+                    addMessage(`✅ 基本連接成功 - 狀態: ${response.status}`, 'success');
+                } else {
+                    addMessage(`⚠️ 連接異常 - 狀態: ${response.status}`, 'error');
+                }
+                
+                // 測試 OPTIONS 請求 (CORS 預檢)
+                const optionsResponse = await fetch(`${serverUrl}/mcp`, {
+                    method: 'OPTIONS'
+                });
+                addMessage(`🔍 CORS 預檢 - 狀態: ${optionsResponse.status}`, 'info');
+                
+            } catch (error) {
+                addMessage(`❌ 連接失敗: ${error.message}`, 'error');
+                addMessage(`💡 可能的原因:`, 'info');
+                addMessage(`   • 服務器未運行 (執行: uv run mcp-superiorapis-http)`, 'info');
+                addMessage(`   • 端口錯誤 (檢查是否為 8000)`, 'info');
+                addMessage(`   • 防火牆阻擋`, 'info');
+                addMessage(`   • CORS 設置問題`, 'info');
+            }
+        }
+
+        // === MCP HTTP 測試 ===
+        async function testMCPInitialize() {
+            const message = {
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2024-11-05",
+                    "capabilities": {},
+                    "clientInfo": {
+                        "name": "mcp-http-test-client",
+                        "version": "1.0.0"
+                    }
+                }
+            };
+            addMessage('🚀 發送 MCP 初始化請求...', 'info');
+            await sendMCPMessage(message);
+        }
+
+        async function testMCPToolsList() {
+            const message = {
+                "jsonrpc": "2.0",
+                "id": 2,
+                "method": "tools/list",
+                "params": {}
+            };
+            addMessage('🔧 請求 Superior APIs 工具列表...', 'info');
+            const result = await sendMCPMessage(message);
+            processToolsList(result);
+        }
+
+        // === 通用函數 ===
+        async function sendMCPMessage(message) {
+            try {
+                addMessage(`📤 發送請求到: ${serverUrl}/mcp`, 'info');
+                addMessage(`📋 請求內容: ${JSON.stringify(message, null, 2)}`, 'info');
+                
+                const response = await fetch(`${serverUrl}/mcp`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'token': authToken
+                    },
+                    body: JSON.stringify(message)
+                });
+
+                addMessage(`📊 回應狀態: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    addMessage(`📄 錯誤內容: ${errorText}`, 'error');
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                addMessage(`📨 MCP 回應: ${JSON.stringify(result, null, 2)}`, 'success');
+                updateStatus(true, 'HTTP');
+                return result;
+            } catch (error) {
+                addMessage(`❌ MCP 錯誤: ${error.message}`, 'error');
+                
+                if (error.message.includes('Failed to fetch')) {
+                    addMessage(`💡 "Failed to fetch" 表示無法連接到服務器`, 'info');
+                    addMessage(`🔧 解決步驟:`, 'info');
+                    addMessage(`   1. 執行: uv run mcp-superiorapis-http`, 'info');
+                    addMessage(`   2. 確認服務器運行在 ${serverUrl}`, 'info');
+                    addMessage(`   3. 檢查防火牆設置`, 'info');
+                    addMessage(`   4. 點擊 "連接測試" 進行診斷`, 'info');
+                }
+                
+                updateStatus(false);
+                return null;
+            }
+        }
+
+        function processToolsList(result) {
+            if (result && result.result && result.result.tools) {
+                availableTools = result.result.tools;
+                addMessage(`🎯 發現 ${availableTools.length} 個 Superior APIs 工具!`, 'success');
+                
+                // 顯示工具列表
+                const toolsDisplay = document.getElementById('tools-display');
+                const toolsContent = document.getElementById('tools-content');
+                toolsContent.innerHTML = '';
+                
+                availableTools.forEach((tool, index) => {
+                    const toolDiv = document.createElement('div');
+                    toolDiv.innerHTML = `
+                        <strong>${index + 1}. ${tool.name}</strong><br>
+                        <em>${tool.description}</em><br>
+                        <small>輸入參數: ${Object.keys(tool.inputSchema.properties || {}).join(', ') || '無'}</small><hr>
+                    `;
+                    toolsContent.appendChild(toolDiv);
+                });
+                
+                toolsDisplay.style.display = 'block';
+                document.getElementById('tool-selection').style.display = 'block';
+                
+                // 填充工具選擇下拉選單
+                const toolSelect = document.getElementById('toolSelect');
+                toolSelect.innerHTML = '';
+                availableTools.forEach(tool => {
+                    const option = document.createElement('option');
+                    option.value = tool.name;
+                    option.textContent = `${tool.name} - ${tool.description.substring(0, 50)}...`;
+                    toolSelect.appendChild(option);
+                });
+            }
+        }
+
+        function showToolsSelect() {
+            if (availableTools.length === 0) {
+                addMessage('⚠️ 請先取得工具列表', 'error');
+                return;
+            }
+            document.getElementById('tool-selection').style.display = 'block';
+        }
+
+        async function callSelectedTool() {
+            const toolSelect = document.getElementById('toolSelect');
+            const toolArgsTextarea = document.getElementById('toolArgs');
+            const selectedToolName = toolSelect.value;
+            
+            if (!selectedToolName) {
+                addMessage('⚠️ 請選擇一個工具', 'error');
+                return;
+            }
+            
+            let arguments = {};
+            try {
+                if (toolArgsTextarea.value.trim()) {
+                    arguments = JSON.parse(toolArgsTextarea.value);
+                }
+            } catch (e) {
+                addMessage('⚠️ 參數 JSON 格式錯誤', 'error');
+                return;
+            }
+            
+            const message = {
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {
+                    "name": selectedToolName,
+                    "arguments": arguments
+                }
+            };
+            
+            addMessage(`🔨 調用 Superior API 工具: ${selectedToolName}`, 'info');
+            addMessage(`📋 參數: ${JSON.stringify(arguments)}`, 'info');
+            await sendMCPMessage(message);
+        }
+
+        // 初始化
+        addMessage('🚀 Superior APIs MCP HTTP Server Test 已就緒', 'success');
+        addMessage('📝 測試 MCP 協議與 Superior APIs 整合 (HTTP)', 'success');
+    </script>
+</body>
+</html>
