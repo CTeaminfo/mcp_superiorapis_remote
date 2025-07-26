@@ -1,0 +1,19 @@
+{
+  "superior_apis_http": {
+    "transport": "streamable_http",
+    "url": "http://localhost:8000/mcp",
+    "headers": {
+      "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJjZXJ0IjoiMDc3NTdiMTA3OGExMjFlYTk1MGU3YTIwOGQ4ZTdiMDJlOTEzYWE4NCJ9.VnQejtbhgDii3S08Rhq3vNRkzctEmkXi9dKoBDBUoHc"
+    },
+    "timeout": 30
+  },
+  "superior_apis_sse": {
+    "transport": "sse",
+    "url": "http://localhost:8080/sse",
+    "headers": {
+      "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJjZXJ0IjoiMDc3NTdiMTA3OGExMjFlYTk1MGU3YTIwOGQ4ZTdiMDJlOTEzYWE4NCJ9.VnQejtbhgDii3S08Rhq3vNRkzctEmkXi9dKoBDBUoHc"
+    },
+    "timeout": 50,
+    "sse_read_timeout": 50
+  }
+}

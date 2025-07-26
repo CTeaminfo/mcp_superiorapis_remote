@@ -290,6 +290,49 @@ uv run typecheck
 - Detailed logs for JSON parsing errors
 - Complete JSON-RPC 2.0 error responses
 
+## 🎯 Dify Integration (Latest Update)
+
+### Dify MCP Standalone Server
+
+A specialized server specifically designed for Dify 1.7.0 MCP integration:
+
+```bash
+# Start Dify-specific MCP server (port 9000)
+python3 dify_mcp_standalone.py
+```
+
+**Key Features:**
+- **OpenAPI Format Preservation**: Maintains original Superior APIs OpenAPI structure
+- **Method-Specific Parsing**: Correctly handles GET (parameters array) vs POST (requestBody)
+- **Dify-Optimized**: Designed specifically for Dify MCP SSE plugin compatibility
+- **Enhanced Debugging**: Comprehensive logging for troubleshooting
+
+**Configuration:**
+```json
+{
+  "name": "Superior APIs",
+  "url": "http://your-server:9000/mcp",
+  "headers": {
+    "token": "your_superior_apis_token"
+  }
+}
+```
+
+**Testing:**
+```bash
+# Test Dify MCP endpoint
+curl -X POST http://localhost:9000/mcp \
+  -H "Content-Type: application/json" \
+  -H "token: YOUR_TOKEN" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+```
+
+**Recent Fixes:**
+- ✅ Fixed 'properties' access error in parameter parsing
+- ✅ Corrected OpenAPI path structure (`plugin.interface` vs `plugin_item.openapi`)
+- ✅ Implemented proper GET/POST method differentiation
+- ✅ Enhanced parameter type allocation (query/path/header/body)
+
 ## 🔧 Configuration Options
 
 For full configuration options, see `.env.example`:
